@@ -44,7 +44,8 @@ static GLuint _pId = 0;
 
 //identifiant texture
 static GLuint _topencvId = 0;
-static GLuint _tspheresId = 0;
+static GLuint _tHatId = 0;
+//static GLuint _tMustacheId = 0;
 
 /*!\brief Création de la fenêtre et paramétrage des fonctions callback.*/
 static GLuint _square = 0;
@@ -94,29 +95,54 @@ void TextureCV(Mat ci){
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
+//permet de charger une image bmp et de l'utiliser comme texture
+int loadTexture(char*bmp){
+	int result = 0;
+	SDL_Surface* text = SDL_LoadBMP(bmp);
+	if(text == NULL){
+		fprintf(stderr,"\nErreur de chargement lors du chargement du fichier %s",bmp);
+		result = -1;
+	} else{
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, text->w, text->h, 0, GL_BGRA, GL_UNSIGNED_BYTE, text->pixels);
+    		SDL_FreeSurface(text);
+	}
+	return result;
+}
+
 //permet de convertir les coordonnées d'un repère 2D -> 3D
-void convertCoord(float*dest, float x, float width, float y, float height){	
-	float xp = 2 * ((_windowWidth - x) / _windowWidth) - 1;//changement de repère [0;1] vers [-1;1]
-	float yp = 2 * ((_windowHeight - y) / _windowHeight) - 1;//changement de repère [0;1] vers [-1;1]
-	float zp = (_windowWidth / width) + (_windowHeight / height);//on recule l'objet dans la scène en fonction de la place occuper à l'ecran
+void convertCoord(float x, float width, float y, float height, GLuint el){	
+	float xp = 2 * (x / (_windowWidth - 1.0)) - 1;//changement de repère [0;1] vers [-1;1]
+	float yp = 2 * ((_windowHeight - y) / (_windowHeight - 1.0)) - 1;//changement de repère [0;1] vers [-1;1]
+	float rp = (width * height) / ((GLfloat)_windowHeight * _windowWidth);//on recule l'objet dans la scène en fonction de la place occuper à l'ecran
 	
-	*(dest+0) = pow(1.17, zp) * xp;//on déplace les valeurs dans l'emplacement de sauvegarde
-	*(dest+1) = yp;//l'éloignement n'affecte pas la hauteur des éléments
+	gl4duBindMatrix("projectionMatrix");
+	gl4duPushMatrix();
+	//gl4duLoadIdentityf();
+	GLfloat* pdatamat = (GLfloat*) gl4duGetMatrixData(), pmatinv[16], rt[4], v[4] = {xp, yp, 0.0, 1.0}, w[4] = {(rp-1)/2, (rp-1)/2, (rp-1)/2, 1.0}, rs[4];//on creer un pointeur vers la matrice de donnée, & un pointeur pour le copier
+	memcpy(pmatinv, pdatamat, sizeof pmatinv);//on copie la matrice de données
+	gl4duPopMatrix();
+	MMAT4INVERSE(pmatinv);//on calcul la matrice inverse
 	
-	if(zp > 1.0) zp *= -1.0;//on rétrécie la taille de l'élément
-	*(dest+2) = zp;
+	MMAT4XVEC4(rt, pmatinv, v);
+	MVEC4WEIGHT(rt);
+	MMAT4XVEC4(rs, pmatinv, w);
+	MVEC4WEIGHT(rs);
+	
+	glEnable(GL_DEPTH_TEST);
+	gl4duBindMatrix("modelViewMatrix");
+	gl4duPushMatrix();{//sauvegarde l'état courant de la matrice
+		  GLfloat rouge[] = {1, 0, 0, 1};
+	  	  gl4duLoadIdentityf();
+		  gl4duTranslatef(rt[0], rt[1], rt[2]);
+		  gl4duScalef(rs[0], rs[1], MIN(rs[0], rs[1]));
+		  gl4duSendMatrices();
+		  glUniform4fv(glGetUniformLocation(_pId, "couleur"), 1, rouge);
+		  gl4dgDraw(el);	
+	}gl4duPopMatrix();//on retourne à l'état initiale avant l'appel de la fonction
 }
 
 void drawItem(float x, float y, float z, GLuint el){  
-  gl4duBindMatrix("modelViewMatrix");
-  gl4duPushMatrix();{//sauvegarde l'état courant de la matrice
-	  GLfloat rouge[] = {1, 0, 0, 1};
-  	  gl4duLoadIdentityf();
-	  gl4duTranslatef(x, y, z);
-	  gl4duSendMatrices();
-	  glUniform4fv(glGetUniformLocation(_pId, "couleur"), 1, rouge);
-	  gl4dgDraw(el);	
-  }gl4duPopMatrix();//on retourne à l'état initiale avant l'appel de la fonction
+
 }
 
 void addLum(GLfloat pos[]){
@@ -150,8 +176,9 @@ int InitGL4(int argc, char**argv){
 static void init(void) {
   _pId  = gl4duCreateProgram("<vs>shaders/basic.vs", "<fs>shaders/basic.fs", NULL);
   	
-  glGenTextures(1, &_topencvId);
-  glGenTextures(1, &_tspheresId);
+  glGenTextures(1, &_topencvId);//on génère un identifiant de texture
+  glGenTextures(1, &_tHatId);
+  //glGenTextures(1, &_tMustacheId);
 
   //param sphère
   glEnable(GL_DEPTH_TEST);
@@ -205,11 +232,10 @@ static void draw(void) {
   
   glUniform1i(glGetUniformLocation(_pId, "totext"), 0);
   
-  float position[3] = {0};
   for (unsigned int i = 0; i < faces.size(); i++) {
   	//convertCoord(position, (float) (faces[i].x + (faces[i].width /2)), (float) (faces[i].y + (faces[i].height / 2)), size);
-  	convertCoord(position, (float) faces[i].x, (float) faces[i].width, (float) faces[i].y, (float) faces[i].height);
-  	drawItem(position[0], position[1], position[2], _sphere);
+  	convertCoord((float) faces[i].x, (float) faces[i].width, (float) faces[i].y, (float) faces[i].height, _sphere);
+//  	drawItem(position[0], position[1], position[2], _sphere);
   }
   
   //drawItem(0.0,0.0,-2.0,_sphere);
