@@ -96,7 +96,7 @@ void TextureCV(Mat ci){
 }
 
 //permet de charger une image bmp et de l'utiliser comme texture
-int loadTexture(char*bmp){
+int loadPNGTexture(char*bmp, char* shaderName, GLuint* tex){
 	int result = 0;
 	SDL_Surface* text = SDL_LoadBMP(bmp);
 	if(text == NULL){
@@ -104,6 +104,14 @@ int loadTexture(char*bmp){
 		result = -1;
 	} else{
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, text->w, text->h, 0, GL_BGRA, GL_UNSIGNED_BYTE, text->pixels);
+		glBindTexture(GL_TEXTURE_2D, *tex);//on rattache à tex la texture souhaité
+		
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	  	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	  	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		
+		glUniform1i(glGetUniformLocation(_pId, shaderName),2);
     		SDL_FreeSurface(text);
 	}
 	return result;
@@ -116,16 +124,15 @@ void convertCoord(float x, float width, float y, float height, GLuint el){
 	float rp = (width * height) / ((GLfloat)_windowHeight * _windowWidth);//on recule l'objet dans la scène en fonction de la place occuper à l'ecran
 	
 	gl4duBindMatrix("projectionMatrix");
-	gl4duPushMatrix();
-	//gl4duLoadIdentityf();
-	GLfloat* pdatamat = (GLfloat*) gl4duGetMatrixData(), pmatinv[16], rt[4], v[4] = {xp, yp, 0.0, 1.0}, w[4] = {(rp-1)/2, (rp-1)/2, (rp-1)/2, 1.0}, rs[4];//on creer un pointeur vers la matrice de donnée, & un pointeur pour le copier
+	gl4duPushMatrix();//sauve la matrice
+	GLfloat* pdatamat = (GLfloat*) gl4duGetMatrixData(), pmatinv[16], rt[4], v[4] = {xp, yp, 0.0, 1.0}, w[4] = {(rp-1)/2, (rp-1)/2, (rp-1)/2, 1.0}, rs[4];
 	memcpy(pmatinv, pdatamat, sizeof pmatinv);//on copie la matrice de données
-	gl4duPopMatrix();
+	gl4duPopMatrix();//load la matrice
 	MMAT4INVERSE(pmatinv);//on calcul la matrice inverse
 	
-	MMAT4XVEC4(rt, pmatinv, v);
+	MMAT4XVEC4(rt, pmatinv, v);//produit entre la matrice et le vecteur v
 	MVEC4WEIGHT(rt);
-	MMAT4XVEC4(rs, pmatinv, w);
+	MMAT4XVEC4(rs, pmatinv, w);//produit entre la matrice et le veceur w
 	MVEC4WEIGHT(rs);
 	
 	glEnable(GL_DEPTH_TEST);
@@ -192,6 +199,8 @@ static void init(void) {
   _square = gl4dgGenQuadf();
   
   TextureCV(ci);//_topencvId contient l'image
+  char filename[] = "hat.bmp", shadername[] = "hat";
+  loadPNGTexture(filename, shadername, &_tHatId);//fichier, nom dans le fragment shader, ou sauvegarder la texture
 }
 
 static void resize(int w, int h) {
@@ -221,7 +230,7 @@ static void draw(void) {
 		  gl4duSendMatrices();
 		  
 		 glUniform1i(glGetUniformLocation(_pId, "tex"), 0);
-		 glUniform1i(glGetUniformLocation(_pId, "totext"), 1);
+		 glUniform1i(glGetUniformLocation(_pId, "totext"), 1);//la valeur de totext est maintenant 1 du côté GPU
 		  
 		  gl4dgDraw(_square);
 	  } gl4duPopMatrix();//on retourne à la matrice précédente
@@ -230,7 +239,7 @@ static void draw(void) {
   } gl4duPopMatrix();//on retourne à la matrice précédente
   gl4duBindMatrix("modelViewMatrix");
   
-  glUniform1i(glGetUniformLocation(_pId, "totext"), 0);
+  glUniform1i(glGetUniformLocation(_pId, "totext"), 0);//la valeur de totext est maintenant 0 du côté GPU
   
   for (unsigned int i = 0; i < faces.size(); i++) {
   	//convertCoord(position, (float) (faces[i].x + (faces[i].width /2)), (float) (faces[i].y + (faces[i].height / 2)), size);

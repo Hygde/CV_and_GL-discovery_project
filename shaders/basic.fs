@@ -7,6 +7,7 @@
 #version 330
 uniform mat4 modelViewMatrix;
 uniform sampler2D tex;
+uniform sampler2D hat;
 uniform int totext;
 uniform vec4 couleur;
 uniform vec4 lumPos;
@@ -21,7 +22,7 @@ void main(void) {
 	float diffuse_factor, specular_factor;
 	vec4 ambient_color = vec4(0.0, 0, 0, 1); //couleur ambiante = noire
 	vec4 specular_color = vec4(1, 1, 1, 1);//couleur de la lumière
-	vec4 diffuse_color = couleur;//couleur de la sphere
+	vec4 diffuse_color = texture(hat, vec2(0,0));//couleur de la sphere
 	
 	//calcul
 	vec3 N = normalize(vsoNormal);
