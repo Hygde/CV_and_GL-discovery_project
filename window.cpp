@@ -103,15 +103,15 @@ int loadPNGTexture(char*bmp, char* shaderName, GLuint* tex){
 		fprintf(stderr,"\nErreur de chargement lors du chargement du fichier %s",bmp);
 		result = -1;
 	} else{
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, text->w, text->h, 0, GL_BGRA, GL_UNSIGNED_BYTE, text->pixels);
-		glBindTexture(GL_TEXTURE_2D, *tex);//on rattache à tex la texture souhaité
+		glBindTexture(GL_TEXTURE_2D, *tex);//on rattache à tex la texture souhaitée
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, text->w, text->h, 0, GL_BGRA, GL_UNSIGNED_BYTE, text->pixels);//load data
 		
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);//texture param
 	  	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	  	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 		
-		glUniform1i(glGetUniformLocation(_pId, shaderName),2);
+		glUniform1i(glGetUniformLocation(_pId, shaderName), 0);//on envoie les données au GPU
     		SDL_FreeSurface(text);
 	}
 	return result;
@@ -186,6 +186,10 @@ static void init(void) {
   glGenTextures(1, &_topencvId);//on génère un identifiant de texture
   glGenTextures(1, &_tHatId);
   //glGenTextures(1, &_tMustacheId);
+  
+  TextureCV(ci);//_topencvId contient l'image
+  char filename[] = "hat.bmp", shadername[] = "hat";//évites un warning à la ligne du dessous
+  loadPNGTexture(filename, shadername, &_tHatId);//fichier, nom dans le fragment shader, ou sauvegarder la texture
 
   //param sphère
   glEnable(GL_DEPTH_TEST);
@@ -195,12 +199,9 @@ static void init(void) {
   gl4duGenMatrix(GL_FLOAT, "projectionMatrix");//création d'une matrice d'affichage
   resize(_windowWidth, _windowHeight);
   
+  //génère les formes
   _sphere = gl4dgGenSpheref(10, 10);
   _square = gl4dgGenQuadf();
-  
-  TextureCV(ci);//_topencvId contient l'image
-  char filename[] = "hat.bmp", shadername[] = "hat";
-  loadPNGTexture(filename, shadername, &_tHatId);//fichier, nom dans le fragment shader, ou sauvegarder la texture
 }
 
 static void resize(int w, int h) {
@@ -240,10 +241,11 @@ static void draw(void) {
   gl4duBindMatrix("modelViewMatrix");
   
   glUniform1i(glGetUniformLocation(_pId, "totext"), 0);//la valeur de totext est maintenant 0 du côté GPU
+  glBindTexture(GL_TEXTURE_2D, _tHatId);//on selectionne la texture que l'on souhaite utiliser
   
   for (unsigned int i = 0; i < faces.size(); i++) {
   	//convertCoord(position, (float) (faces[i].x + (faces[i].width /2)), (float) (faces[i].y + (faces[i].height / 2)), size);
-  	convertCoord((float) faces[i].x, (float) faces[i].width, (float) faces[i].y, (float) faces[i].height, _sphere);
+  	convertCoord((float) faces[i].x, (float) faces[i].width, (float) faces[i].y, (float) faces[i].height, _square);
 //  	drawItem(position[0], position[1], position[2], _sphere);
   }
   
