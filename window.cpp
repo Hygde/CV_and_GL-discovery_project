@@ -21,6 +21,9 @@ using namespace std;
 
 //openCV déclaration :
 Mat ci;
+VideoCapture capture;
+CascadeClassifier * face_cc;
+CascadeClassifier * eye_cc;
 vector<Rect> faces;
 
 //GL4Dum delcaration :
@@ -29,6 +32,7 @@ vector<Rect> faces;
 int InitGL4(int argc, char **argv);
 void drawItem(float x, float y, float z, GLuint el);
 void TextureCV(Mat ci);
+int openCamera();
 
 /* Prototypes des fonctions statiques contenues dans ce fichier C */
 static void init(void);
@@ -57,25 +61,29 @@ static GLuint _square = 0;
 ////////////////////////////////////////////////////////////////////
 
 int main(int argc, char ** argv) {
-  CascadeClassifier * face_cc = new CascadeClassifier("haarcascade_frontalface_default.xml");
-  CascadeClassifier * eye_cc = new CascadeClassifier("haarcascade_eye.xml");
-  if(face_cc == NULL || eye_cc == NULL)
-    return 1;
-  ci = imread("visages.jpg");
-  Mat gsi = imread("visages.jpg", CV_LOAD_IMAGE_GRAYSCALE);
-  cvNamedWindow("Face detection", CV_WINDOW_AUTOSIZE);
   
-  face_cc->detectMultiScale(gsi, faces, 1.3, 5);
-  for (vector<Rect>::iterator fc = faces.begin(); fc != faces.end(); ++fc) {
-    rectangle(ci, (*fc).tl(), (*fc).br(), Scalar(0, 255, 0), 2, CV_AA);
+  if(openCamera() < 0){
+  	printf("\nErreur lors de l'ouverture de la camera !\nFin du programme\n");
+  	fprintf(stderr, "\nErreur lors de l'ouverture de la camera !\nFin du programme\n");
+  	exit(EXIT_FAILURE);
   }
   
   ////////////////////////////////////////////////////////////////////
+  
+  face_cc = new CascadeClassifier("haarcascade_frontalface_default.xml");
+  eye_cc = new CascadeClassifier("haarcascade_eye.xml");
+  if(face_cc == NULL || eye_cc == NULL) {
+  	printf("\nErreur lors de la creation du detecteur de visage !\nFin du programme\n");
+  	fprintf(stderr, "\nErreur lors de la creation du detecteur de visage !\nFin du programme\n");
+  	exit(EXIT_FAILURE);
+  }
+  
+  ////////////////////////////////////////////////////////////////////
+  
   if(InitGL4(argc, argv) != 0){
 	printf("Erreur dans InitGL4()");
 	return EXIT_FAILURE;
   }
-
   return 0;
 }
 
@@ -83,6 +91,32 @@ int main(int argc, char ** argv) {
 ////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////
 
+//permet d'ouvrir la camera
+int openCamera(){
+	int result = 0;
+	capture = VideoCapture(0);
+	capture.set(CV_CAP_PROP_FRAME_WIDTH, _windowWidth);
+	capture.set(CV_CAP_PROP_FRAME_HEIGHT, _windowHeight);
+	if(!capture.isOpened()){
+		fprintf(stderr,"Error while opening camera !");
+		result = -1;
+	}
+	return result;
+}
+
+//permet de detecter les visages et de dessiner un carré autour
+void facesDetection(){
+	Mat gsi;// = imread("visages.jpg", CV_LOAD_IMAGE_GRAYSCALE);
+	cvtColor(ci,gsi, CV_RGB2GRAY);
+	  
+	face_cc->detectMultiScale(gsi, faces, 1.3, 5);
+	for (vector<Rect>::iterator fc = faces.begin(); fc != faces.end(); ++fc) {
+	  rectangle(ci, (*fc).tl(), (*fc).br(), Scalar(0, 255, 0), 2, CV_AA);
+	}
+	gsi.release();
+}
+
+//permet de transformer la l'image de la cam en texture
 void camera2Texture(Mat ci){
 	glBindTexture(GL_TEXTURE_2D, _topencvId);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -194,7 +228,6 @@ static void init(void) {
   glGenTextures(1, &_tHatId);
   //glGenTextures(1, &_tMustacheId);
   
-  camera2Texture(ci);//_topencvId contient l'image
   if(loadBMPTexture("hat.bmp", "hat", &_tHatId) < 0) printf("\nError while loading texture");//fichier, nom dans le fragment shader, ou sauvegarder la texture
 
   //param sphère
@@ -221,7 +254,11 @@ static void resize(int w, int h) {
 }
 
 /*!\brief Dessin de la géométrie texturée. */
-static void draw(void) {
+static void draw(void) {  
+  capture.read(ci);
+  facesDetection();
+  camera2Texture(ci);//_topencvId contient l'image
+  
   glUseProgram(_pId);
   glDisable(GL_DEPTH_TEST);
   glActiveTexture(GL_TEXTURE0);
