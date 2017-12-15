@@ -49,7 +49,7 @@ static GLuint _tHatId = 0;
 
 /*!\brief Création de la fenêtre et paramétrage des fonctions callback.*/
 static GLuint _square = 0;
-static GLuint _sphere = 0;
+//static GLuint _sphere = 0;
 
 
 ////////////////////////////////////////////////////////////////////
@@ -83,7 +83,7 @@ int main(int argc, char ** argv) {
 ////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////
 
-void TextureCV(Mat ci){
+void camera2Texture(Mat ci){
 	glBindTexture(GL_TEXTURE_2D, _topencvId);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -96,7 +96,7 @@ void TextureCV(Mat ci){
 }
 
 //permet de charger une image bmp et de l'utiliser comme texture
-int loadPNGTexture(char*bmp, char* shaderName, GLuint* tex){
+int loadBMPTexture(const char*bmp, const char* shaderName, GLuint* tex){
 	int result = 0;
 	SDL_Surface* text = SDL_LoadBMP(bmp);
 	if(text == NULL){
@@ -104,7 +104,7 @@ int loadPNGTexture(char*bmp, char* shaderName, GLuint* tex){
 		result = -1;
 	} else{
 		glBindTexture(GL_TEXTURE_2D, *tex);//on rattache à tex la texture souhaitée
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, text->w, text->h, 0, GL_BGRA, GL_UNSIGNED_BYTE, text->pixels);//load data
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, text->w, text->h, 0, GL_RGB, GL_UNSIGNED_BYTE, text->pixels);//load data
 		
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);//texture param
 	  	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -117,10 +117,10 @@ int loadPNGTexture(char*bmp, char* shaderName, GLuint* tex){
 	return result;
 }
 
-//permet de convertir les coordonnées d'un repère 2D -> 3D
-void convertCoord(float x, float width, float y, float height, GLuint el){	
-	float xp = 2 * (x / (_windowWidth - 1.0)) - 1;//changement de repère [0;1] vers [-1;1]
-	float yp = 2 * ((_windowHeight - y) / (_windowHeight - 1.0)) - 1;//changement de repère [0;1] vers [-1;1]
+//dessine un item aux coords x, y, z. Conversion des coord 2D en coord 3D
+void drawItem(float x, float width, float y, float height, GLuint el){	
+	float xp = 2 * ( (x+width/2.0) / (_windowWidth - 1.0)) - 1;//changement de repère [0;1] vers [-1;1]
+	float yp = 2 * ((_windowHeight - (y/1.5)) / (_windowHeight - 1.0)) - 1;//changement de repère [0;1] vers [-1;1]
 	float rp = (width * height) / ((GLfloat)_windowHeight * _windowWidth);//on recule l'objet dans la scène en fonction de la place occuper à l'ecran
 	
 	gl4duBindMatrix("projectionMatrix");
@@ -141,15 +141,11 @@ void convertCoord(float x, float width, float y, float height, GLuint el){
 		  GLfloat rouge[] = {1, 0, 0, 1};
 	  	  gl4duLoadIdentityf();
 		  gl4duTranslatef(rt[0], rt[1], rt[2]);
-		  gl4duScalef(rs[0], rs[1], MIN(rs[0], rs[1]));
+		  gl4duScalef(rs[0]*0.7, rs[1]*0.7, MIN(rs[0]*0.7, rs[1]*0.7));
 		  gl4duSendMatrices();
 		  glUniform4fv(glGetUniformLocation(_pId, "couleur"), 1, rouge);
 		  gl4dgDraw(el);	
 	}gl4duPopMatrix();//on retourne à l'état initiale avant l'appel de la fonction
-}
-
-void drawItem(float x, float y, float z, GLuint el){  
-
 }
 
 void addLum(GLfloat pos[]){
@@ -162,6 +158,17 @@ void addLum(GLfloat pos[]){
 		MMAT4XVEC4(lumPos, mat, pos);//multiplication de la matrice avec un vecteur 4 afin que la lumière suive ma vue
 		glUniform4fv(glGetUniformLocation(_pId, "lumPos"), 1, lumPos);
 	}gl4duPopMatrix();
+}
+
+void enableWhiteTransparency(){
+	glEnable(GL_BLEND);
+  	glDepthMask(GL_FALSE);
+	glBlendFunc(GL_ONE_MINUS_SRC_COLOR, GL_SRC_COLOR);
+}
+
+void disableWhiteTransparency(){
+	glDisable(GL_BLEND);
+	glDepthMask(GL_TRUE);
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -187,9 +194,8 @@ static void init(void) {
   glGenTextures(1, &_tHatId);
   //glGenTextures(1, &_tMustacheId);
   
-  TextureCV(ci);//_topencvId contient l'image
-  char filename[] = "hat.bmp", shadername[] = "hat";//évites un warning à la ligne du dessous
-  loadPNGTexture(filename, shadername, &_tHatId);//fichier, nom dans le fragment shader, ou sauvegarder la texture
+  camera2Texture(ci);//_topencvId contient l'image
+  if(loadBMPTexture("hat.bmp", "hat", &_tHatId) < 0) printf("\nError while loading texture");//fichier, nom dans le fragment shader, ou sauvegarder la texture
 
   //param sphère
   glEnable(GL_DEPTH_TEST);
@@ -200,7 +206,7 @@ static void init(void) {
   resize(_windowWidth, _windowHeight);
   
   //génère les formes
-  _sphere = gl4dgGenSpheref(10, 10);
+  //_sphere = gl4dgGenSpheref(10, 10);
   _square = gl4dgGenQuadf();
 }
 
@@ -243,13 +249,11 @@ static void draw(void) {
   glUniform1i(glGetUniformLocation(_pId, "totext"), 0);//la valeur de totext est maintenant 0 du côté GPU
   glBindTexture(GL_TEXTURE_2D, _tHatId);//on selectionne la texture que l'on souhaite utiliser
   
+  enableWhiteTransparency();
   for (unsigned int i = 0; i < faces.size(); i++) {
-  	//convertCoord(position, (float) (faces[i].x + (faces[i].width /2)), (float) (faces[i].y + (faces[i].height / 2)), size);
-  	convertCoord((float) faces[i].x, (float) faces[i].width, (float) faces[i].y, (float) faces[i].height, _square);
-//  	drawItem(position[0], position[1], position[2], _sphere);
+  	drawItem((float) faces[i].x, (float) faces[i].width, (float) faces[i].y, (float) faces[i].height, _square);
   }
-  
-  //drawItem(0.0,0.0,-2.0,_sphere);
+  disableWhiteTransparency();
   
   GLfloat lumPos[4] = {-0.5, 0.5, 1.5, 1.0};
   addLum(lumPos);

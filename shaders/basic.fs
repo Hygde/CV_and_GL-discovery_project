@@ -33,7 +33,7 @@ void main(void) {
 	//diffuse_color *= diffuse_factor;
 	
 	//specular_factor = pow(clamp(dot(-R, vec3(0, 0, 0)), 0, 1), shininess);
-	//specular_color *= specular_factor;*/
+	//specular_color *= specular_factor;
 	
 	fragColor = diffuse_color;//ambient_color + diffuse_color + specular_color;//output	
   }
