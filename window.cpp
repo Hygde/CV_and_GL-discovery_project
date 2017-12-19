@@ -16,6 +16,8 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <objdetect.hpp>
 
+#define CAMERA 0
+
 using namespace cv;
 using namespace std;
 
@@ -23,7 +25,7 @@ using namespace std;
 Mat ci;
 VideoCapture capture;
 CascadeClassifier * face_cc;
-CascadeClassifier * eye_cc;
+//CascadeClassifier * eye_cc;
 vector<Rect> faces;
 
 //GL4Dum delcaration :
@@ -33,6 +35,7 @@ int InitGL4(int argc, char **argv);
 void drawItem(float x, float y, float z, GLuint el);
 void TextureCV(Mat ci);
 int openCamera();
+void facesDetection();
 
 /* Prototypes des fonctions statiques contenues dans ce fichier C */
 static void init(void);
@@ -62,20 +65,23 @@ static GLuint _square = 0;
 
 int main(int argc, char ** argv) {
   
-  if(openCamera() < 0){
-  	printf("\nErreur lors de l'ouverture de la camera !\nFin du programme\n");
-  	fprintf(stderr, "\nErreur lors de l'ouverture de la camera !\nFin du programme\n");
-  	exit(EXIT_FAILURE);
-  }
-  
-  ////////////////////////////////////////////////////////////////////
-  
   face_cc = new CascadeClassifier("haarcascade_frontalface_default.xml");
-  eye_cc = new CascadeClassifier("haarcascade_eye.xml");
-  if(face_cc == NULL || eye_cc == NULL) {
+  //eye_cc = new CascadeClassifier("haarcascade_eye.xml");
+  if(face_cc == NULL){// || eye_cc == NULL) {
   	printf("\nErreur lors de la creation du detecteur de visage !\nFin du programme\n");
   	fprintf(stderr, "\nErreur lors de la creation du detecteur de visage !\nFin du programme\n");
   	exit(EXIT_FAILURE);
+  }
+  
+  if(CAMERA){
+	  if(openCamera() < 0){
+	  	printf("\nErreur lors de l'ouverture de la camera !\nFin du programme\n");
+	  	fprintf(stderr, "\nErreur lors de l'ouverture de la camera !\nFin du programme\n");
+	  	exit(EXIT_FAILURE);
+	  }
+  }else{
+  	ci = imread("visages.jpg");
+  	facesDetection();
   }
   
   ////////////////////////////////////////////////////////////////////
@@ -255,8 +261,10 @@ static void resize(int w, int h) {
 
 /*!\brief Dessin de la géométrie texturée. */
 static void draw(void) {  
-  capture.read(ci);
-  facesDetection();
+  if(CAMERA){
+  	capture.read(ci);
+	facesDetection();
+  }
   camera2Texture(ci);//_topencvId contient l'image
   
   glUseProgram(_pId);
