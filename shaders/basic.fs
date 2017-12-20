@@ -8,6 +8,8 @@
 uniform mat4 modelViewMatrix;
 uniform sampler2D tex;
 uniform sampler2D hat;
+uniform sampler2D mustache;
+
 uniform int totext;
 uniform vec4 couleur;
 uniform vec4 lumPos;
@@ -18,24 +20,12 @@ out vec4 fragColor;
 
 void main(void) {  
   if(totext == 0) {
-	//const float shininess = 10;  
-	//float diffuse_factor, specular_factor;
-	//vec4 ambient_color = vec4(0.0, 0, 0, 1); //couleur ambiante = noire
-	//vec4 specular_color = vec4(1, 1, 1, 1);//couleur de la lumière
-	vec4 diffuse_color = texture(hat, vsoTexCoord);//couleur de l'objet
-	
-	//calcul
-	//vec3 N = normalize(vsoNormal);
-	//vec3 L = normalize(lumPos.xyz); /*vers le bas vers la gauche*/
-	//vec3 R = reflect(L, N);
-	
-	//diffuse_factor = dot(N, -L);
-	//diffuse_color *= diffuse_factor;
-	
-	//specular_factor = pow(clamp(dot(-R, vec3(0, 0, 0)), 0, 1), shininess);
-	//specular_color *= specular_factor;
-	
-	fragColor = diffuse_color;//ambient_color + diffuse_color + specular_color;//output	
+	fragColor = texture(hat, vsoTexCoord);
   }
-  else fragColor = texture(tex, vsoTexCoord);
+  if(totext == 1){
+  	fragColor = texture(mustache, vsoTexCoord);
+  }
+  if(totext == 2){
+  	fragColor = texture(tex, vsoTexCoord);
+  }
 }

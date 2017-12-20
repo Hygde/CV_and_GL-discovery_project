@@ -52,7 +52,7 @@ static GLuint _pId = 0;
 //identifiant texture
 static GLuint _topencvId = 0;
 static GLuint _tHatId = 0;
-//static GLuint _tMustacheId = 0;
+static GLuint _tMustacheId = 0;
 
 /*!\brief Création de la fenêtre et paramétrage des fonctions callback.*/
 static GLuint _square = 0;
@@ -114,7 +114,7 @@ int openCamera(){
 void facesDetection(){
 	Mat gsi;// = imread("visages.jpg", CV_LOAD_IMAGE_GRAYSCALE);
 	cvtColor(ci,gsi, CV_RGB2GRAY);
-	  
+	faces.clear();  
 	face_cc->detectMultiScale(gsi, faces, 1.3, 5);
 	for (vector<Rect>::iterator fc = faces.begin(); fc != faces.end(); ++fc) {
 	  rectangle(ci, (*fc).tl(), (*fc).br(), Scalar(0, 255, 0), 2, CV_AA);
@@ -159,8 +159,8 @@ int loadBMPTexture(const char*bmp, const char* shaderName, GLuint* tex){
 
 //dessine un item aux coords x, y, z. Conversion des coord 2D en coord 3D
 void drawItem(float x, float width, float y, float height, GLuint el){	
-	float xp = 2 * ( (x+width/2.0) / (_windowWidth - 1.0)) - 1;//changement de repère [0;1] vers [-1;1]
-	float yp = 2 * ((_windowHeight - (y/1.5)) / (_windowHeight - 1.0)) - 1;//changement de repère [0;1] vers [-1;1]
+	float xp = 2 * ( x/ (_windowWidth - 1.0)) - 1;//changement de repère [0;1] vers [-1;1]
+	float yp = 2 * ((_windowHeight - y) / (_windowHeight - 1.0)) - 1;//changement de repère [0;1] vers [-1;1]
 	float rp = (width * height) / ((GLfloat)_windowHeight * _windowWidth);//on recule l'objet dans la scène en fonction de la place occuper à l'ecran
 	
 	gl4duBindMatrix("projectionMatrix");
@@ -232,9 +232,10 @@ static void init(void) {
   	
   glGenTextures(1, &_topencvId);//on génère un identifiant de texture
   glGenTextures(1, &_tHatId);
-  //glGenTextures(1, &_tMustacheId);
+  glGenTextures(1, &_tMustacheId);
   
   if(loadBMPTexture("hat.bmp", "hat", &_tHatId) < 0) printf("\nError while loading texture");//fichier, nom dans le fragment shader, ou sauvegarder la texture
+  if(loadBMPTexture("mustache.bmp", "mustache", &_tMustacheId) < 0) printf("\nError while loading texture");
 
   //param sphère
   glEnable(GL_DEPTH_TEST);
@@ -263,8 +264,8 @@ static void resize(int w, int h) {
 static void draw(void) {  
   if(CAMERA){
   	capture.read(ci);
-	facesDetection();
-  }
+  }else ci = imread("visages.jpg");
+  facesDetection();
   camera2Texture(ci);//_topencvId contient l'image
   
   glUseProgram(_pId);
@@ -282,7 +283,7 @@ static void draw(void) {
 		  gl4duSendMatrices();
 		  
 		 glUniform1i(glGetUniformLocation(_pId, "tex"), 0);
-		 glUniform1i(glGetUniformLocation(_pId, "totext"), 1);//la valeur de totext est maintenant 1 du côté GPU
+		 glUniform1i(glGetUniformLocation(_pId, "totext"), 2);//la valeur de totext est maintenant 1 du côté GPU
 		  
 		  gl4dgDraw(_square);
 	  } gl4duPopMatrix();//on retourne à la matrice précédente
@@ -291,12 +292,18 @@ static void draw(void) {
   } gl4duPopMatrix();//on retourne à la matrice précédente
   gl4duBindMatrix("modelViewMatrix");
   
-  glUniform1i(glGetUniformLocation(_pId, "totext"), 0);//la valeur de totext est maintenant 0 du côté GPU
-  glBindTexture(GL_TEXTURE_2D, _tHatId);//on selectionne la texture que l'on souhaite utiliser
   
   enableWhiteTransparency();
   for (unsigned int i = 0; i < faces.size(); i++) {
-  	drawItem((float) faces[i].x, (float) faces[i].width, (float) faces[i].y, (float) faces[i].height, _square);
+  	//hat
+  	glUniform1i(glGetUniformLocation(_pId, "totext"), 0);//la valeur de totext est maintenant 0 du côté GPU
+  	glBindTexture(GL_TEXTURE_2D, _tHatId);//on selectionne la texture que l'on souhaite utiliser
+  	drawItem((float) faces[i].x + (faces[i].width / 2.0), (float) faces[i].width, (float) faces[i].y / 1.5, (float) faces[i].height, _square);
+  	
+  	//mustache
+  	glUniform1i(glGetUniformLocation(_pId, "totext"), 1);//la valeur de totext est maintenant 0 du côté GPU
+  	glBindTexture(GL_TEXTURE_2D, _tMustacheId);
+  	drawItem((float) faces[i].x + (faces[i].width / 2.0), (float) faces[i].width, (float) faces[i].y + 110.0, (float) faces[i].height, _square);
   }
   disableWhiteTransparency();
   
